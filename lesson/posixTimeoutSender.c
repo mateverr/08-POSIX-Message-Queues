@@ -42,12 +42,14 @@ int main(void) {
     s = fgets(buffer, BUF_SIZE, stdin);
     printf("Size of msgs: %lu\n", sizeof(struct msgs));
     strcpy(a_msg.data, buffer);
+    
     clock_gettime(CLOCK_REALTIME, &to); // get the current time and store in struct
     to.tv_sec += 5;  // make it timeout in 5 second from now
     if (mq_timedsend(mqd, (void *)&a_msg, sizeof(struct msgs), priority, &to) ==
         -1) {
       perror("mq_timedsend failed ");
       // exit(EXIT_FAILURE);
+      // comment out the error
     }
     if (strncmp(buffer, "end", 3) == 0)
       running = 0;
