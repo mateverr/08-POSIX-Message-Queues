@@ -34,7 +34,7 @@
  *        mode   = 0660
  *        attr   = { .mq_maxmsg = 4, .mq_msgsize = MSG_BUF_SIZE }
  *   3. Fork one child process.
- *   4. Parent:
+ *   4. Parent: // Remove comments and modify them into real code
  *        a. Build SensorReading r = { .sensor_id = 7, .value = 42 }.
  *        b. mq_send(mqd, (char *)&r, sizeof(r), 0) — priority 0.
  *        c. mq_close(mqd).
@@ -124,12 +124,13 @@ int task_full_queue(void) {
  *   1. mq_unlink(Q_SIZE) — clean slate.
  *   2. Open the queue with mq_msgsize = sizeof(struct SensorReading).
  *      Use O_CREAT | O_WRONLY.
- *   3. Prepare a char buffer of size sizeof(struct SensorReading) + 1.
- *   4. Call mq_send() with that buffer — it must fail: errno == EMSGSIZE.
+ *   3. Prepare a char buffer of size sizeof(struct SensorReading) + 1. MAKE THE MESSAGE BIGGER
+ *   4. Call mq_send() with that buffer — it must fail: errno == EMSGSIZE. TRY TO SEND THE MESSAGE, AND IT MUST FAIL
  *   5. If errno == EMSGSIZE, print exactly:  oversized send: EMSGSIZE detected
  *   6. mq_close, mq_unlink(Q_SIZE).
  */
-int task_size_limit(void) {
+int task_size_limit(void) 
+{
     /* TODO: implement task D */
     (void)Q_SIZE;
     fprintf(stderr, "TODO: task_size_limit not implemented\n");
@@ -139,7 +140,8 @@ int task_size_limit(void) {
 /* ------------------------------------------------------------------ */
 /* main — do not modify                                                */
 /* ------------------------------------------------------------------ */
-int main(void) {
+int main(void) 
+{
     if (task_struct_exchange() != 0) return EXIT_FAILURE;
     if (task_priority_order()  != 0) return EXIT_FAILURE;
     if (task_full_queue()      != 0) return EXIT_FAILURE;
