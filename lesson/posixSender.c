@@ -30,7 +30,7 @@ int main(void) {
   q_attr.mq_maxmsg = MAX_MSG;
   q_attr.mq_msgsize = MAX_MSG_SIZE;
 
-  mqd = mq_open(Q_NAME, O_WRONLY | O_CREAT, 0660, &q_attr);
+  mqd = mq_open(Q_NAME, O_WRONLY | O_CREAT, 0660, &q_attr);  // permission being 0660, 
   if (mqd == -1) {
     perror("mq_open failed ");
     exit(EXIT_FAILURE);
@@ -39,13 +39,13 @@ int main(void) {
   while (running) {
     printf("Enter data: ");
     s = fgets(buffer, BUF_SIZE, stdin);  
-    printf("Size of msgs: %lu\n", sizeof(struct msgs));
+    printf("Size of msgs: %lu\n", sizeof(struct msgs)); // print out size of message
     strcpy(a_msg.data, buffer);
     if (mq_send(mqd, (void *)&a_msg, sizeof(struct msgs), priority) == -1) {  // send must contain sizeof struct and priority value
       perror("mq_send failed ");
       exit(EXIT_FAILURE);
     }
-    if (strncmp(buffer, "end", 3) == 0)
+    if (strncmp(buffer, "end", 3) == 0) // string compare
       running = 0;
   }
 

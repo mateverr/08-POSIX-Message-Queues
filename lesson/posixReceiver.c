@@ -5,14 +5,15 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/fcntl.h>
 
-#define Q_NAME "/pos_msgQ"
+#define Q_NAME "/pos_msgQ" // this is a message queue descriptor, the identifier must begin will '/'
 #define Q_PERM 0660
 #define MAX_MSG 3
 #define MAX_MSG_SIZE 256
 #define BUF_SIZE 60
 
-struct msgs {
+struct msgs {x`
   int written;
   char data[BUF_SIZE];
 };
@@ -36,17 +37,20 @@ int main(void) {
 
   while (running) {
     if (mq_receive(mqd, (void *)&a_msg, MAX_MSG_SIZE, &priority) == -1) {  //priority for receive need to be the reference
-      perror("mq_receive failed ");
+      perror("mq_receive failed "); // take data from message queue and put it in a_msg
       exit(EXIT_FAILURE);
     }
+
     printf("Received Message: %s", a_msg.data);
     if (strncmp(a_msg.data, "end", 3) == 0)
       running = 0;
   }
   mq_close(mqd);  // close the posix msgQ
+  /*
   if (mq_unlink(Q_NAME) == -1) { //unlink posix msgQ
     perror("mq_unlink failed ");
     exit(EXIT_FAILURE);
   }
+  */
   exit(EXIT_SUCCESS);
 }
