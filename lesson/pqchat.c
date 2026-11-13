@@ -10,7 +10,8 @@
 #include <sys/msg.h>
 
 // dir name for posix msgQ (can be any name but "/" is needed in the front)
-#define Q_NAME "/pos_msgQ"
+#define Q_NAME_1 "/pos_msgQ1"
+#define Q_NAME_2 "/pos_msgQ2"
 #define Q_PERM 0660
 #define MAX_MSG 3
 #define MAX_MSG_SIZE 256
@@ -47,8 +48,15 @@ int main(int argc, char *argv[])
     q_attr.mq_maxmsg = MAX_MSG;
     q_attr.mq_msgsize = MAX_MSG_SIZE;
 
-    mqd = mq_open(Q_NAME, O_WRONLY | O_CREAT, 0660, &q_attr);  // permission being 0660, 
+    mqd1 = mq_open(Q_NAME_1, O_WRONLY | O_CREAT, 0660, &q_attr);  // permission being 0660, 
     if (mqd == -1) {
+        perror("mq_open failed ");
+        exit(EXIT_FAILURE);
+    }
+
+    mqd2 = mq_open(Q_NAME_2, O_WRONLY | O_CREAT, 0660, &q_attr); // permission being 0660,
+    if (mqd == -1)
+    {
         perror("mq_open failed ");
         exit(EXIT_FAILURE);
     }
@@ -72,10 +80,13 @@ int main(int argc, char *argv[])
         child = fork();
         switch (child)
         {
-            case -1: perror("Forking failed\n"); exit(EXIT_FAILURE);
+            case -1: 
+                perror("Forking failed\n"); 
+                exit(EXIT_FAILURE);
             case  0: 
             while (strncmp(a_msg.data, "end chat", 8))
                 {
+                    
                     if ((nbytes = msgrcv(msgID, (void *) &a_msg, BUFSIZ, 2, 0)) > 0)
                         write(1, a_msg.data, nbytes);
                 }
