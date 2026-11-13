@@ -1,5 +1,3 @@
-#include <mqueue.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +6,9 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <mqueue.h>
 
 // dir name for posix msgQ (can be any name but "/" is needed in the front)
 #define Q_NAME_1 "/pos_msgQ1"
@@ -15,28 +16,28 @@
 #define Q_PERM 0660
 #define MAX_MSG 3
 #define MAX_MSG_SIZE 256
-#define BUF_SIZE 60
 
 static void sig_end()
 {
     exit(EXIT_SUCCESS);
 }
 
-struct my_msg 
+struct my_msg
 {
-   // long int msg_type; NO NEED MESSAGE TYPE IDENTIFIER
-   char data[BUFSIZ];
+    // long int msg_type;
+    char data[MAX_MSG_SIZE];
 };
 
 int main(int argc, char *argv[])
 {
     // key_t key;
-
-    int msgID, child, nbytes;
+    int child, nbytes;
     struct my_msg a_msg;
-    char buffer[BUFSIZ] = "";
-    
-
+    struct mq_attr q_attr;     // must provide this attr struct
+    mqd_t mqd1, mqd2;          // use for posix msgQ ID data type
+    unsigned int priority = 0; // use this instead of long msg_type
+    char buffer[MAX_MSG_SIZE];
+    int msg_size = sizeof(struct my_msg);
 
     if (argc < 2)
     {
@@ -44,35 +45,26 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-      // attr init
+    memset(buffer, '\0', MAX_MSG_SIZE);
+
+    // attr init
     q_attr.mq_maxmsg = MAX_MSG;
-    q_attr.mq_msgsize = MAX_MSG_SIZE;
+    q_attr.mq_msgsize = sizeof(struct my_msg);
 
-    mqd1 = mq_open(Q_NAME_1, O_WRONLY | O_CREAT, 0660, &q_attr);  // permission being 0660, 
-    if (mqd == -1) {
-        perror("mq_open failed ");
-        exit(EXIT_FAILURE);
-    }
-
-    mqd2 = mq_open(Q_NAME_2, O_WRONLY | O_CREAT, 0660, &q_attr); // permission being 0660,
-    if (mqd == -1)
+    mqd1 = mq_open(Q_NAME_1, O_RDWR | O_CREAT, 0660, &q_attr);
+    if (mqd1 == -1)
     {
         perror("mq_open failed ");
         exit(EXIT_FAILURE);
     }
 
-    // key = ftok("./qchat", 202203);
-    // NO NEED KEY, IT IS FOR SYSTEM V
-
-    /*
-    msgID = msgget(key, 0666 | IPC_CREAT); //110110110 | 1010000000000 -> 1010110110110
-    if (msgID == -1)
+    mqd2 = mq_open(Q_NAME_2, O_RDWR | O_CREAT, 0660, &q_attr);
+    if (mqd2 == -1)
     {
-        perror("msgget() failed\n"); exit(EXIT_FAILURE);
+        perror("mq_open failed ");
+        exit(EXIT_FAILURE);
     }
-    */
 
-    // STILL NEED THE SIGNAL
     signal(SIGUSR1, sig_end);
     argv++;
     if (strcmp(*argv, "1") == 0)
@@ -80,30 +72,42 @@ int main(int argc, char *argv[])
         child = fork();
         switch (child)
         {
-            case -1: 
-                perror("Forking failed\n"); 
-                exit(EXIT_FAILURE);
-            case  0: 
+        case -1:
+            perror("Forking failed\n");
+            exit(EXIT_FAILURE);
+        case 0:
             while (strncmp(a_msg.data, "end chat", 8))
-                {
-                    
-                    if ((nbytes = msgrcv(msgID, (void *) &a_msg, BUFSIZ, 2, 0)) > 0)
-                        write(1, a_msg.data, nbytes);
+            {
+                nbytes = mq_receive(mqd2, (void *)&a_msg, msg_size, &priority);
+                if (nbytes == -1)
+                { // priority for receive need to be the reference
+                    perror("mq_receive failed ");
+                    exit(EXIT_FAILURE);
                 }
-                if (msgctl(msgID, IPC_RMID, 0) == -1)
-                {
-                    perror("msgctl failed: "); exit(EXIT_FAILURE);
-                }
-                break;
-            default: 
+                fputs(a_msg.data, stdout);
+            }
+
+            mq_close(mqd2); // close the posix msgQ
+            if (mq_unlink(Q_NAME_2) == -1)
+            { // unlink posix msgQ
+                perror("mq_unlink failed ");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        default:
             while (strncmp(buffer, "end chat", 8))
+            {
+                if (fgets(buffer, MAX_MSG_SIZE, stdin) != NULL)
                 {
-                    if ((nbytes = read(0, buffer, BUFSIZ)) > 0)
-                    {
-                        a_msg.msg_type = 1; strcpy(a_msg.data, buffer);
-                        msgsnd(msgID, (void *) &a_msg, nbytes,  0);
+                    strcpy(a_msg.data, buffer);
+                    if (mq_send(mqd1, (void *)&a_msg, msg_size, priority) == -1)
+                    { // send must contain sizeof struct and priority value
+                        perror("mq_send failed ");
+                        exit(EXIT_FAILURE);
                     }
                 }
+            }
+            mq_close(mqd1); // close the posix msgQ
         }
     }
     else if (strcmp(*argv, "2") == 0)
@@ -111,37 +115,49 @@ int main(int argc, char *argv[])
         child = fork();
         switch (child)
         {
-            case -1: perror("Forking failed\n"); exit(EXIT_FAILURE);
-            case  0: while (strncmp(a_msg.data, "end chat", 8))
-                     {
-                         /*if ((nbytes = msgrcv(msgID, (void *) &a_msg, BUFSIZ, 1, 0)) > 0)
-                             write(1, a_msg.data, nbytes); */
-                        if (mq_receive(mqd, (void *)&a_msg, MAX_MSG_SIZE, &priority) == -1) 
-                        {  //priority for receive need to be the reference
-                            perror("mq_receive failed "); // take data from message queue and put it in a_msg
-                            exit(EXIT_FAILURE);
-                        }
-                     }
-                    /*
-                     if (msgctl(msgID, IPC_RMID, 0) == -1)
-                     {
-                         perror("msgctl failed: "); exit(EXIT_FAILURE);
-                     }
-                    */
-                     break;
-            default: while (strncmp(buffer, "end chat", 8))
-                     {
-                         if ((nbytes = read(0, buffer, BUFSIZ)) > 0)
-                         {
-                             a_msg.msg_type = 2; strcpy(a_msg.data, buffer);
-                             msgsnd(msgID, (void *) &a_msg, nbytes,  0);
-                         }
-                     }
+        case -1:
+            perror("Forking failed\n");
+            exit(EXIT_FAILURE);
+        case 0:
+            while (strncmp(a_msg.data, "end chat", 8))
+            {
+                nbytes = mq_receive(mqd1, (void *)&a_msg, msg_size, &priority);
+                if (nbytes == -1)
+                { // priority for receive need to be the reference
+                    perror("mq_receive failed ");
+                    exit(EXIT_FAILURE);
+                }
+                fputs(a_msg.data, stdout);
+            }
+
+            mq_close(mqd1); // close the posix msgQ
+            if (mq_unlink(Q_NAME_1) == -1)
+            { // unlink posix msgQ
+                perror("mq_unlink failed ");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        default:
+            while (strncmp(buffer, "end chat", 8))
+            {
+                if (fgets(buffer, MAX_MSG_SIZE, stdin) != NULL)
+                {
+                    strcpy(a_msg.data, buffer);
+                    if (mq_send(mqd2, (void *)&a_msg, msg_size, priority) == -1)
+                    { // send must contain sizeof struct and priority value
+                        perror("mq_send failed ");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            mq_close(mqd2); // close the posix msgQ
         }
     }
-        
-    if (child) kill(child, SIGUSR1);
-    else kill(getppid(), SIGUSR1);
-   
+
+    if (child)
+        kill(child, SIGUSR1);
+    else
+        kill(getppid(), SIGUSR1);
+
     exit(EXIT_SUCCESS);
 }
