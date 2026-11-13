@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <timespe
 
 #define Q_NAME "/my_mq"
 #define Q_PERM 0660

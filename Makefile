@@ -12,6 +12,7 @@ grade: all
 	./scripts/grade.sh
 
 $(BIN_DIR)/msgq_lab: src/msgq_lab.c include/msgq_lab.h
+	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $< -o $@ $(LIBS)
 
 clean:

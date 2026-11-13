@@ -45,7 +45,8 @@ int main(void) {
     if (strncmp(a_msg.data, "end", 3) == 0)
       running = 0;
   }
-  mq_close(mqd);  // close the posix msgQ
+  mq_close(mqd);  
+  // close the posix msgQ
   /*
   if (mq_unlink(Q_NAME) == -1) { //unlink posix msgQ
     perror("mq_unlink failed ");
